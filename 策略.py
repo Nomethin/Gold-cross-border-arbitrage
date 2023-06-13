@@ -1,5 +1,7 @@
 import openpyxl
 import matplotlib.pyplot as plt
+import statistics
+
 workbook = openpyxl.load_workbook('修改版回测.xlsx')
 sheet = workbook['修改版']
 
@@ -172,6 +174,16 @@ def Cumulative_Yield(Comprehensive_return_rate):
     return Cumulative_Yield
 Cumulative_Y = Cumulative_Yield(Comprehensive_return_rate)
 #这个是累计收益率
+
+growth_diff=[]
+for i in range(len(Comprehensive_return_rate)):
+    growth_diff.append(Comprehensive_return_rate[i]-0.00012)
+day_fluc = statistics.stdev(growth_diff) #日波动率
+aver_growth = statistics.mean(growth_diff)
+Sharpe_Ratio = (aver_growth * ((250)**0.5))/day_fluc
+#print(day_fluc)
+#print(aver_growth)
+#print(Sharpe_Ratio)
 
 """
 下面开始画图
