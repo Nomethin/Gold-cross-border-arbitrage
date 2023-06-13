@@ -1,8 +1,9 @@
 import openpyxl
+import matplotlib.pyplot as plt
 workbook = openpyxl.load_workbook('修改版回测.xlsx')
 sheet = workbook['修改版']
 
-
+Date = [cell.value for cell in sheet['A']][1:]
 AU = [cell.value for cell in sheet['B']][1:]
 NAU = [cell.value for cell in sheet['C']][1:]
 RMB = [cell.value for cell in sheet['D']][1:]
@@ -171,3 +172,13 @@ def Cumulative_Yield(Comprehensive_return_rate):
     return Cumulative_Yield
 Cumulative_Y = Cumulative_Yield(Comprehensive_return_rate)
 #这个是累计收益率
+
+"""
+下面开始画图
+"""
+
+plt.style.use("dark_background")
+plt.figure(num=None, figsize=(18,45), frameon=True)
+plt.title("Cumulative Yield")
+plt.plot(range(len(Date[2:])), Cumulative_Y, color='green', marker='o', linewidth=1, markersize=0.5)
+plt.show()
