@@ -41,59 +41,75 @@ def NAU_Backtesting(NAU): #5天动量，是n-6,i=6
 ratio = []
 for i in range(len(AU)):
     ratio.append(AU[i]/(NAU[i]*RMB[i]/31.1035))
-#print(ratio)
+print(ratio)
 
 #不搞了，在外面把五天差值比写好了
 
 def Backtesting(AU,NAU,ratio):
     Trade_N=[]
-    for i in range(len(ratio)):
-        if ratio[i]>1.01: #价差扩大
+    postion_list=[0] #多一个0，记得结尾删一个
+    position=0 #有仓位就要有收益，没仓位就没收益
+    for i in range(1,len(ratio)):
+        if ratio[i]>1.01 and ratio[i-1]<1.01: #上穿1.01，开仓操作
+            if position == 0:
+                position += 1
+            postion_list.append(1)
             P_ti = 1
-            Trade_N.append(P_ti)
-        elif ratio[i]<=1:
+        elif ratio[i]<1 and ratio[i-1]>1: #下穿1，平仓操作
+            if position == 1:
+                position -= 1
+            postion_list.append(0)
             P_ti= -1
         else:
+            if position == 1:
+                postion_list.append(1)
+            elif position == 0:
+                postion_list.append(0)
             P_ti = 0
         Trade_N.append(P_ti)
-    return Trade_N
-Trade_N = Backtesting(AU,NAU,ratio)
+    return Trade_N,postion_list
+Trade_N,postion_list = Backtesting(AU,NAU,ratio)
+print(Trade_N) #长度均为n-1
+print(postion_list[:-1])
+#print(len(Trade_N)-len(postion_list[:-1])) #长度一致
 
-def AU_Yield(AU,Trade_N,AU_main,NAU_main):#这个是沪金收益率，记住是n-2项
+def AU_Yield(AU,AU_main,NAU_main,postion_list):#这个是沪金收益率，记住是n-2项
     AU_Yield = []
     for i in range(1,len(AU)):
         if AU_main[i - 1] != AU_main[i] or NAU_main[i - 1] != NAU_main[i]:
             AU_Yield.append(0)
         else:
-            temp_yield = round(((AU[i] / AU[i - 1]) - 1)*Trade_N[i-1],9)
+
+            temp_yield = round(((AU[i] / AU[i - 1]) - 1)*postion_list[i-1],9)
             AU_Yield.append(temp_yield)
     return AU_Yield
-AU_Y = AU_Yield(AU, Trade_N, AU_main,NAU_main)
+AU_Y = AU_Yield(AU,AU_main,NAU_main,postion_list)
+#print(AU_Y)
 
-
-def NAU_Yield(NAU,Trade_N,NAU_main,AU_main):#这个是纽约金收益率，记住是n-6项
+def NAU_Yield(RMB,NAU,NAU_main,AU_main,postion_list):#这个是纽约金收益率，记住是n-6项
     NAU_Yield=[]
     for i in range(1,len(NAU)):
         if NAU_main[i-1]!=NAU_main[i] or AU_main[i - 1] != AU_main[i]:
             NAU_Yield.append(0)
             continue
         else:
-            temp_yield = round(((NAU[i] / NAU[i - 1]) - 1)*Trade_N[i-1],9)
+            temp_yield = round((((NAU[i]*RMB[i]) / (NAU[i - 1]*RMB[i-1])) - 1)*postion_list[i-1],9)
             NAU_Yield.append(temp_yield)
     return NAU_Yield
-NAU_Y=NAU_Yield(NAU,Trade_N,NAU_main,AU_main)
+NAU_Y=NAU_Yield(RMB,NAU,NAU_main,AU_main,postion_list)
 #print(NAU_Y)
 
 def final_Yield(AU_Y,NAU_Y):
     final_Y = []
     for i in range(len(AU_Y)):
-        final_Y.append(AU_Y[i]-NAU_Y[i])
+        final_Y.append(NAU_Y[i]-AU_Y[i])
     return final_Y
 final_Y = final_Yield(AU_Y,NAU_Y)
-print(len(final_Y))
-print(len(AU_Y))
-print(len(AU))
 print(final_Y)
+#print(len(final_Y))
+#print(len(AU_Y))
+#print(len(AU))
+#print(final_Y)
 
 def Cumulative_Yield(AU_Y):
     Cumulative_Yield = [AU_Y[0]]
