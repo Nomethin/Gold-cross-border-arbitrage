@@ -43,7 +43,7 @@ def NAU_Backtesting(NAU): #5天动量，是n-6,i=6
 ratio = []
 for i in range(len(AU)):
     ratio.append((NAU[i]*RMB[i]/31.1035)/AU[i])  #这里是(NAU*汇率/31.1035)/AU 在1左右浮动
-print(ratio)
+#print(ratio)
 
 
 def Backtesting(AU,NAU,ratio,time_judge,RMB):
@@ -53,7 +53,7 @@ def Backtesting(AU,NAU,ratio,time_judge,RMB):
     for i in range(1,len(ratio)):
         if ratio[i]>1: #这边是做多AU的情况
             if time_judge[i]==1:  #判断是否在2020年4月9号前，即中国黄金交割费用变化前
-                if ratio[i]> 1 + 0.08738/AU[i] and ratio[i-1]< 1 + 0.08738/AU[i-1]:
+                if ratio[i]> 1 + 0.08738/AU[i] and ratio[i-1]< 1 + 0.08738/AU[i-1]: #击穿条件，可以随时改
                     p_change = 1 #我把这个定为了0.5
                     if position < 1 and position >= -1: #这里的一半等于号很重要
                         position += p_change
@@ -143,12 +143,12 @@ print(final_Y)
 
 def Cumulative_Yield(final_Y):
     Cumulative_Yield = [final_Y[0]]
-    for i in range(len(final_Y)):
+    for i in range(1,len(final_Y)):
         cumulative_return = Cumulative_Yield [i - 1] + final_Y[i]
         Cumulative_Yield.append(cumulative_return)
     return Cumulative_Yield
 Cumulative_Y = Cumulative_Yield(final_Y)
-#print(Cumulative_Y)
+print(Cumulative_Y)
 
 growth_diff=[]
 for i in range(len(final_Y)):
@@ -164,5 +164,5 @@ print(Sharpe_Ratio)
 plt.style.use("dark_background")
 plt.figure(num=None, figsize=(12,6), frameon=True)
 plt.title("Cumulative Yield")
-plt.plot(range(len(AU_Y)+1), Cumulative_Y, color='green', marker='o', linewidth=1, markersize=0.5)
-#plt.show()
+plt.plot(range(len(AU_Y)), Cumulative_Y, color='green', marker='o', linewidth=1, markersize=0.5)
+plt.show()
