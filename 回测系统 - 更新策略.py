@@ -4,6 +4,7 @@ import statistics
 import pandas as pd
 import numpy as np
 import random
+import seaborn as sns
 
 workbook = openpyxl.load_workbook('对回测.xlsx')
 sheet = workbook['1-最简单回测']
@@ -52,8 +53,8 @@ for i in range(1,len(RMB)):
 
 def P_change_func(AU,NAU,ratio,time_judge,RMB,T_return_ratio,RMB_ratio): #先做一个最简单的，p_change=利润（不对称的）的前后比值的某些比率,n-1项，感觉比值作为change还是有点大
     p_change = []
-    scant = 3 #我们击穿的数量有限，要让交易尽可能的多但也不能浪费其潜力，换言之，让仓满了不交易的情况尽量少
-    vcant = 0.9
+    scant = 2.78 #我们击穿的数量有限，要让交易尽可能的多但也不能浪费其潜力，换言之，让仓满了不交易的情况尽量少
+    vcant = 0.65
     for i in range(len(T_return_ratio)):
         if T_return_ratio[i]/3>1:
             p_change.append(vcant)        #这个0.9可以进行修改，譬如说设成一个特定数，这样后面可以放条件
@@ -66,6 +67,8 @@ def P_change_func(AU,NAU,ratio,time_judge,RMB,T_return_ratio,RMB_ratio): #先做
 p_change = P_change_func(AU,NAU,ratio,time_judge,RMB,T_return_ratio,RMB_ratio)
 #print(len(p_change)-len(ratio))
 #把它单独拿出来，即使p_change可能会大于1，但还是会被筛掉
+
+
 
 """
 上面的这部分是进行交易仓位调整的策略部分
@@ -81,96 +84,61 @@ def Backtesting(AU,NAU,ratio,time_judge,RMB,p_change):
         change = p_change[i-1]  # 看p_change具体情况
         if ratio[i]>1: #这边是做多AU的情况
             if time_judge[i]==1:  #判断是否在2020年4月9号前，即中国黄金交割费用变化前
-                if ratio[i]> 1 + 0.08738/AU[i] and ratio[i-1]< 1 + 0.08738/AU[i-1]: #击穿条件，可以随时改
-                    if position+change < 1 and position >= -1: #这里的一半等于号很重要
+                if ratio[i] > 1 + 0.08738 / AU[i]:  # 击穿之后，还是盈利的情况
+                    if position + change < 1 and position >= -1:  # 这里的一半等于号很重要
                         position += change
                         postion_list.append(position)
                         P_ti = change
-                        sum.append([1])
-                    else: #position+change >= 1以及，position<-1 但这应该不可能？ #这里全都是刚穿过去但加change爆了的
-                        position = 0.5 #如果条件满足，但是change超了，直接半仓
-                        postion_list.append(0.5)
-                        P_ti = 0.5-position
-                        sum.append([2])
-                else:
-                    if ratio[i]> 1 + 0.08738/AU[i]: #击穿之后，还是盈利的情况
-                        if position + change < 1 and position >= -1:  # 这里的一半等于号很重要
-                            position += change
-                            postion_list.append(position)
-                            P_ti = change
-                            sum.append([3])
-                        else:  # position+change >= 1以及，position<-1 但这应该不可能？ #这里全都是刚穿过去但加change爆了的
-                            position = 0.5  # 如果条件满足，但是change超了，直接半仓
-                            postion_list.append(0.5)
-                            P_ti = 0.5 - position
-                            sum.append([4])
-                    else:
-                        postion_list.append(position)
-                        P_ti = 0
-            else:
-                if ratio[i]> 1 + 0.02597/AU[i] and ratio[i-1]< 1 + 0.02597/AU[i-1]:
-                    if position+change < 1 and position >= -1:  #加减change保证仓位不过正负1
-                        position += change
-                        postion_list.append(position)
-                        P_ti = change
-                    else:  #这个else完全不触发
+                        sum.append([3])
+                    else:  # position+change >= 1以及，position<-1 但这应该不可能？ #这里全都是刚穿过去但加change爆了的
                         position = 0.5  # 如果条件满足，但是change超了，直接半仓
                         postion_list.append(0.5)
-                        P_ti = 0.5-position
-                        sum.append([5])
-                else:
-                    if ratio[i]> 1 + 0.02597/AU[i]: #击穿之后，还是盈利的情况
-                        if position + change < 1 and position >= -1:  # 这里的一半等于号很重要
-                            position += change
-                            postion_list.append(position)
-                            P_ti = change
-                            sum.append([6])
-                        else:  # position+change >= 1以及，position<-1 但这应该不可能？ #这里全都是刚穿过去但加change爆了的
-                            position = 0.5  # 如果条件满足，但是change超了，直接半仓
-                            postion_list.append(0.5)
-                            P_ti = 0.5 - position
-                            sum.append([7])
-                    else:
-                        postion_list.append(position)
-                        P_ti = 0
-        else: #这边是做多NAU的情况
-            if ratio[i] < 1 - 0.001838 / AU[i] - 0.49*RMB[i]/(31.1035*AU[i]) and ratio[i - 1] > 1 - 0.001838 / AU[i-1] - 0.49*RMB[i-1]/(31.1035*AU[i-1]):
-                if position <= 1 and position-change > -1:
-                    position -= change
-                    postion_list.append(position)
-                    P_ti = -change
-                    sum.append([8])
-                else: # position-change <= 1以及，position>1 但这应该不可能？
-                    position = -0.5  # 如果条件满足，但是change超了，直接半仓
-                    postion_list.append(-0.5)
-                    P_ti = 0.5 + position #即  position-(-1)
-                    sum.append([9])
-            else:
-                if ratio[i] < 1 - 0.001838 / AU[i] - 0.49 * RMB[i] / (31.1035 * AU[i]):
-                    if position <= 1 and position - change > -1:
-                        position -= change
-                        postion_list.append(position)
-                        P_ti = -change
-                        sum.append([10])
-                    else:  # position-change <= 1以及，position>1 但这应该不可能？
-                        position = -0.5  # 如果条件满足，但是change超了，直接半仓
-                        postion_list.append(-0.5)
-                        P_ti = 0.5 + position  # 即  position-(-1)
-                        sum.append([11])
+                        P_ti = 0.5 - position
+                        sum.append([4])
                 else:
                     postion_list.append(position)
                     P_ti = 0
+            else:
+                if ratio[i] > 1 + 0.02597 / AU[i]:  # 击穿之后，还是盈利的情况
+                    if position + change < 1 and position >= -1:  # 这里的一半等于号很重要
+                        position += change
+                        postion_list.append(position)
+                        P_ti = change
+                        sum.append([6])
+                    else:  # position+change >= 1以及，position<-1 但这应该不可能？ #这里全都是刚穿过去但加change爆了的
+                        position = 0.5  # 如果条件满足，但是change超了，直接半仓
+                        postion_list.append(0.5)
+                        P_ti = 0.5 - position
+                        sum.append([7])
+                else:
+                    postion_list.append(position)
+                    P_ti = 0
+        else: #这边是做多NAU的情况
+            if ratio[i] < 1 - 0.001838 / AU[i] - 0.49 * RMB[i] / (31.1035 * AU[i]):
+                if position <= 1 and position - change > -1:
+                    position -= change
+                    postion_list.append(position)
+                    P_ti = -change
+                    sum.append([10])
+                else:  # position-change <= 1以及，position>1 但这应该不可能？
+                    position = -0.5  # 如果条件满足，但是change超了，直接半仓
+                    postion_list.append(-0.5)
+                    P_ti = 0.5 + position  # 即  position-(-1)
+                    sum.append([11])
+            else:
+                postion_list.append(position)
+                P_ti = 0
         Trade_N.append(P_ti)
     return Trade_N,postion_list,sum
 
 Trade_N,postion_list,sum = Backtesting(AU,NAU,ratio,time_judge,RMB,p_change)
 print("交易向量是: {0}".format(Trade_N)) #长度均为n-1
-print("仓位情况是: {0}".format(postion_list[:-1]))
+#print("仓位情况是: {0}".format(postion_list[:-1]))
 #print(len(AU))
 #print(len(Trade_N))
-print("交易和仓位长度是否一致（0为一致）: {0}".format(len(Trade_N)-len(postion_list[:-1]))) #长度一致
+#print("交易和仓位长度是否一致（0为一致）: {0}".format(len(Trade_N)-len(postion_list[:-1]))) #长度一致
 postion_list = postion_list[:-1]
-print(sum)
+#print(sum) sum用来删不需要的分支
 
 
 Nega_Trade = 0
@@ -303,6 +271,46 @@ print("Calmar_Ratio is: {0}".format(Calmar_Ratio))
 """
 上面的部分是各种评测数据的计算
 """
+
+
+#ratio[i]> 1 + 0.08738/AU[i]
+#ratio[i]> 1 + 0.02597/AU[i]
+#ratio[i] < 1 - 0.001838 / AU[i] - 0.49*RMB[i]/(31.1035*AU[i])
+
+def Upper_Lower(AU,RMB,time_judge):
+    upper_list = []
+    lower_list = []
+    for i in range(len(AU)):
+        if time_judge[i] == 1:
+            upper_list.append(1 + 0.08738 / AU[i])
+            lower_list.append(1 - 0.001838 / AU[i] - 0.49 * RMB[i] / (31.1035 * AU[i]))
+        else:
+            upper_list.append(1 + 0.02597 / AU[i])
+            lower_list.append(1 - 0.001838 / AU[i] - 0.49 * RMB[i] / (31.1035 * AU[i]))
+    return upper_list,lower_list
+upper_list,lower_list = Upper_Lower(AU,RMB,time_judge)
+print(upper_list)
+print(lower_list)
+
+
+#这个是上下界的分布图，发现是在1.0004~1.00005，还有-0.9998~-0.9995
+plt.figure(figsize=(13, 13))
+font = {'family': 'Times New Roman',
+        'weight': 'normal',
+        'size': 15,
+        }
+data1 = upper_list[1:]
+data2 = lower_list[1:]
+plt.plot(data1, label="upper list")
+plt.plot(data2, label="lower list")
+#plt.axhline(1, linestyle='--', color='green', lw=2) #插入水平线
+# plt.axvline(10, linestyle='--', color='green', alpha=0.8) //插入垂直线
+plt.ylabel('value', fontsize=20)
+plt.xlabel("time",labelpad=8.5, fontsize=20)
+plt.legend(fontsize=20)
+#plt.show()
+
+
 
 #这个是交易分布的散点图
 plt.scatter(range(len(AU_Y)), Trade_N, marker="o", c="red" , s=0.5)
