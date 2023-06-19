@@ -77,7 +77,9 @@ def Backtesting(AU, NAU, ratio, time_judge, RMB, p_change):
     Trade_N = [] # 记录交易大小（包含方向）的列表
     position_list = [0] # 记录仓位的列表
     positions = []
-    grid_interval = 0.001
+    grid_interval = 0.0008
+    stop_loss = 0.05  # 止损比例
+    take_profit = 0.007  # 止盈比例
 
     for i in range(1, len(ratio)):
         change = p_change[i - 1]
@@ -93,6 +95,7 @@ def Backtesting(AU, NAU, ratio, time_judge, RMB, p_change):
             positions.append(position)
             # 执行网格交易操作（示例中为买入基金份额）
             position_list[-1] += change  # 增加持仓数量
+
 
             # 判断买入或卖出的条件
             if ratio_value > 1:  # 买入AU
@@ -138,6 +141,17 @@ def Backtesting(AU, NAU, ratio, time_judge, RMB, p_change):
                     # 无交易
                     position_list.append(position_list[-1])
                     Trade_N.append(0)
+
+                # 检查是否触及止损或止盈目标并执行平仓操作
+                for position in positions:
+                    if ratio_value > position['ratio'] * (1 + take_profit) or ratio_value < position['ratio'] * (
+                            1 - stop_loss):
+                        positions.remove(position)
+
+                        # 执行平仓操作
+                        position_list[-1] -= change  # 减少持仓数量
+                        Trade_N[i-1] = change
+
         else:
             # 无交易
             position_list.append(position_list[-1])
@@ -330,7 +344,7 @@ plt.style.use("dark_background")
 plt.figure(num=None, figsize=(12,6), frameon=True)
 plt.title("Cumulative Yield")
 plt.plot(range(len(AU_Y)), Cumulative_Y, color='green', marker='o', linewidth=1, markersize=0.5)
-#plt.show()
+plt.show()
 
 #这个是Ratio的图,可以用来检验网格交易是否正确
 plt.style.use("dark_background")
