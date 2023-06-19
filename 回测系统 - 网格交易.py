@@ -68,98 +68,80 @@ p_change = P_change_func(AU,NAU,ratio,time_judge,RMB,T_return_ratio,RMB_ratio)
 #把它单独拿出来，即使p_change可能会大于1，但还是会被筛掉
 
 
-
 """
 上面的这部分是进行交易仓位调整的策略部分
 """
 
 
-
 def Backtesting(AU, NAU, ratio, time_judge, RMB, p_change):
-    Trade_N = [] # 这个是记录交易大小（包含方向）的列表
-    position_list = [0] # 这个是记录仓位的列表
+    Trade_N = [] # 记录交易大小（包含方向）的列表
+    position_list = [0] # 记录仓位的列表
     positions = []
-    grid_interval = 0.01
+    grid_interval = 0.001
 
     for i in range(1, len(ratio)):
         change = p_change[i - 1]
         ratio_value = ratio[i]
+        prev_ratio_value = ratio[i - 1]
         AU_price = AU[i]
         NAU_price = NAU[i]
         grid_levels = np.arange(ratio_value - grid_interval, ratio_value + grid_interval, grid_interval)
 
-        # 检查价格是否触及网格
-        if ratio_value in grid_levels:
-            position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
+        # 检查价格是否越过网格
+        if (prev_ratio_value < np.min(grid_levels) and ratio_value > np.min(grid_levels)) or (prev_ratio_value > np.max(grid_levels) and ratio_value < np.max(grid_levels)):
+            position = {'ratio': ratio_value}
             positions.append(position)
             # 执行网格交易操作（示例中为买入基金份额）
             position_list[-1] += change  # 增加持仓数量
 
-        # 检查是否需要平仓
-        for position in positions:
-            if (ratio_value - ratio[position['AU']]) * np.sign(position['AU'] - np.where(grid_levels == ratio_value)[0][0]) > grid_interval:
-                # 获利超过网格间隔，平仓
-                positions.remove(position)
-                # 执行平仓操作（示例中为卖出基金份额）
-                position_list[-1] -= change  # 减少持仓数量
-                Trade_N.append(0)
-
-        # 判断买入或卖出的条件
-        if ratio_value > 1:  # 买入AU
-            if time_judge == 1:
-                if ratio_value > 1 + 0.08738 / AU_price:  # 判断上界条件
-                    if position_list[-1] + change < 1 and position_list[-1] >= -1:
-                        # 开仓买入
-                        position_list.append(position_list[-1] + change)
-                        position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
-                        positions.append(position)
-                        Trade_N.append(change)
+            # 判断买入或卖出的条件
+            if ratio_value > 1:  # 买入AU
+                if time_judge == 1:
+                    if ratio_value > 1 + 0.08738 / AU_price:  # 判断上界条件
+                        if position_list[-1] + change < 1 and position_list[-1] >= -1:
+                            # 开仓买入
+                            position_list.append(position_list[-1] + change)
+                            Trade_N.append(change)
+                        else:
+                            # 开仓买入但爆仓，半仓
+                            position_list.append(0.5)
+                            Trade_N.append(0.5 - position_list[-1])
                     else:
-                        # 开仓买入但爆仓，半仓
-                        position_list.append(0.5)
-                        position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
-                        positions.append(position)
-                        Trade_N.append(0.5 - position_list[-1])
+                        # 无交易
+                        position_list.append(position_list[-1])
+                        Trade_N.append(0)
+                else:
+                    if ratio_value > 1 + 0.02597 / AU_price:  # 判断上界条件
+                        if position_list[-1] + change < 1 and position_list[-1] >= -1:
+                            # 开仓买入
+                            position_list.append(position_list[-1] + change)
+                            Trade_N.append(change)
+                        else:
+                            # 开仓买入但爆仓，半仓
+                            position_list.append(0.5)
+                            Trade_N.append(0.5 - position_list[-1])
+                    else:
+                        # 无交易
+                        position_list.append(position_list[-1])
+                        Trade_N.append(0)
+            else:  # 卖出AU
+                if ratio_value < 1 - 0.001838 / AU_price - 0.49 * RMB[i] / (31.1035 * AU_price):  # 判断下界条件
+                    if position_list[-1] <= 1 and position_list[-1] - change > -1:
+                        # 开仓卖出
+                        position_list.append(position_list[-1] - change)
+                        Trade_N.append(-change)
+                    else:
+                        # 开仓卖出但爆仓，半仓
+                        position_list.append(-0.5)
+                        Trade_N.append(0.5 + position_list[-1])
                 else:
                     # 无交易
                     position_list.append(position_list[-1])
                     Trade_N.append(0)
-            else:
-                if ratio_value > 1 + 0.02597 / AU_price:  # 判断上界条件
-                    if position_list[-1] + change < 1 and position_list[-1] >= -1:
-                        # 开仓买入
-                        position_list.append(position_list[-1] + change)
-                        position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
-                        positions.append(position)
-                        Trade_N.append(change)
-                    else:
-                        # 开仓买入但爆仓，半仓
-                        position_list.append(0.5)
-                        position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
-                        positions.append(position)
-                        Trade_N.append(0.5 - position_list[-1])
-                else:
-                    # 无交易
-                    position_list.append(position_list[-1])
-                    Trade_N.append(0)
-        else:  # 卖出AU
-            if ratio_value < 1 - 0.001838 / AU_price - 0.49 * RMB[i] / (31.1035 * AU_price):  # 判断下界条件
-                if position_list[-1] <= 1 and position_list[-1] - change > -1:
-                    # 开仓卖出
-                    position_list.append(position_list[-1] - change)
-                    position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
-                    positions.append(position)
-                    Trade_N.append(-change)
-                else:
-                    # 开仓卖出但爆仓，半仓
-                    position_list.append(-0.5)
-                    position = {'AU': np.where(grid_levels == ratio_value)[0][0], 'NAU': 0}
-                    positions.append(position)
-                    Trade_N.append(0.5 + position_list[-1])
-            else:
-                # 无交易
-                position_list.append(position_list[-1])
-                Trade_N.append(0)
+        else:
+            # 无交易
+            position_list.append(position_list[-1])
+            Trade_N.append(0)
 
     return Trade_N, position_list
 
@@ -348,6 +330,13 @@ plt.style.use("dark_background")
 plt.figure(num=None, figsize=(12,6), frameon=True)
 plt.title("Cumulative Yield")
 plt.plot(range(len(AU_Y)), Cumulative_Y, color='green', marker='o', linewidth=1, markersize=0.5)
+#plt.show()
+
+#这个是Ratio的图,可以用来检验网格交易是否正确
+plt.style.use("dark_background")
+plt.figure(num=None, figsize=(12,6), frameon=True)
+plt.title("Ratio")
+plt.plot(range(len(AU_Y)+1), ratio, color='green', marker='o', linewidth=1, markersize=0.5)
 #plt.show()
 
 """
