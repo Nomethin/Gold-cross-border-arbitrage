@@ -27,8 +27,8 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
     T_return = np.full(length, np.nan)
     T_return_logchange = np.full(length, np.nan)
 
-    scant = 3.9  # 我们击穿的数量有限，要让交易尽可能的多但也不能浪费其潜力，换言之，让仓满了不交易的情况尽量少
-    vcant = 0.7
+    scant = 4.2  # 我们击穿的数量有限，要让交易尽可能的多但也不能浪费其潜力，换言之，让仓满了不交易的情况尽量少
+    vcant = 0.8
 
     p_change = np.full(length, np.nan)
     Trade_N = np.full(length, np.nan)
@@ -54,7 +54,7 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
             T_return_log = math.log(abs(T_return[i] - T_return[i - 1]))
             T_return_logchange[i] = T_return_log * math.copysign(1, T_return[i] - T_return[i - 1])
         else:
-            T_return_logchange[i] = 1
+            T_return_logchange[i] = 0
         # 制造p_change
         if i>0:
             if T_return_logchange[i] * math.copysign(1, T_return[i] - T_return[i - 1]) / scant >= 1:
@@ -79,7 +79,6 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
             pyramid_factor = 2
 
         change = p_change[i-1] * pyramid_factor if i > 0 else 0 #注意是拿今天的推测明天
-
         if change > 2:
             change = 2
         elif change < -2:
@@ -91,49 +90,51 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
             position = {'ratio': ratio_value}
             positions.append(position)
 
-            if ratio_value > 1:
+            if ratio_value > 1:#change不一定大于零，之前忘记加条件了
                 if time_judge[i] == 1:
                     if ratio_value > 1 + 0.08738 / AU_price: #i等于0时是不会交易的
-                        if position_list[i - 1] + change < 1 and position_list[i - 1] >= -1:
-                            position_list[i] = position_list[i - 1] + change #position_list[i]是个预测值! position_list[i]是明天的，现在change已经用的是i-1了
-                            Trade_N[i] = change
-                        else:
+                        if position_list[i - 1] + change < 1 and position_list[i - 1] >= -1 and position_list[i - 1] <= 1: #然后position_list[i - 1]也不一定是正的
+                            position_list[i] = min(max(position_list[i - 1] + change, -1), 1) #position_list[i]是个预测值! position_list[i]是明天的，现在change已经用的是i-1了
+                        elif position_list[i - 1] + change >= 1: #正向爆仓，此时change>0
                             position_list[i] = 1
-                            Trade_N[i] = 1 - position_list[i - 1]
+                        else: #反向爆仓 #这个地方应该有点问题
+                            position_list[i] = -1
                     else:
                         position_list[i] = position_list[i - 1]
-                        Trade_N[i] = 0
                 else:
                     if ratio_value > 1 + 0.02597 / AU_price:
-                        if position_list[i - 1] + change < 1 and position_list[i - 1] >= -1:
-                            position_list[i] = position_list[i - 1] + change
-                            Trade_N[i] = change
-                        else:
-                            position_list[i] = 1 #全部改成正负1了
-                            Trade_N[i] = 1 - position_list[i - 1]
+                        if position_list[i - 1] + change < 1 and position_list[i - 1] >= -1 and position_list[i - 1] <= 1:
+                            position_list[i] = min(max(position_list[i - 1] + change, -1), 1) #用来保证position_list只在-1到1之间
+                        elif position_list[i - 1] + change >= 1:  # 正向爆仓
+                            position_list[i] = 1
+                        else:  # 反向爆仓
+                            position_list[i] = -1
                     else:
                         position_list[i] = position_list[i - 1]
-                        Trade_N[i] = 0
             else:
                 if ratio_value < 1 - 0.001838 / AU_price - 0.49 * RMB[i] / (31.1035 * AU_price):
-                    if position_list[i - 1] <= 1 and position_list[i - 1] - change > -1:
-                        position_list[i] = position_list[i - 1] - change
-                        Trade_N[i] = - change
-                    else:
+                    if position_list[i - 1] <= 1 and position_list[i - 1] - change > -1 and position_list[i - 1] >= -1:
+                        position_list[i] = min(max(position_list[i - 1] - change, -1), 1)
+                    elif position_list[i - 1] - change > -1: #正向爆仓
                         position_list[i] = -1
-                        Trade_N[i] = -1 - position_list[i - 1]
+                    else: #反向爆仓
+                        position_list[i] = 1
                 else:
                     position_list[i] = position_list[i - 1]
-                    Trade_N[i] = 0
 
             for position in positions:
                 if ratio_value < position['ratio'] * (1 - stop_loss):
                     positions.remove(position)
                     position_list[i] -= change
                     Trade_N[i] = change
+
+            Trade_N[i] = position_list[i] - position_list[i - 1] #挪到这里来了，删掉了很多重复片段
+
         else:
             position_list[i] = position_list[i - 1]
             Trade_N[i] = 0
+
+
 
     data = {
         'trade_day': trade_day,
@@ -152,9 +153,9 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
 
     return Trade_N, position_list, ratio ,df
 
-Small_Trade_N,Small_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0005)
-Middle_Trade_N,Middle_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.002)
-Big_Trade_N,Big_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0035)
+Small_Trade_N,Small_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0004)
+Middle_Trade_N,Middle_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0020)
+Big_Trade_N,Big_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0031)
 
 Trade_N = []
 for i in range(len(Small_Trade_N)):
