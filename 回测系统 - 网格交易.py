@@ -96,7 +96,6 @@ def Backtesting(AU, NAU, ratio, time_judge, RMB, p_change):
             # 执行网格交易操作（示例中为买入基金份额）
             position_list[-1] += change  # 增加持仓数量
 
-
             # 判断买入或卖出的条件
             if ratio_value > 1:  # 买入AU
                 if time_judge == 1:
@@ -351,7 +350,7 @@ plt.style.use("dark_background")
 plt.figure(num=None, figsize=(12,6), frameon=True)
 plt.title("Ratio")
 plt.plot(range(len(AU_Y)+1), ratio, color='green', marker='o', linewidth=1, markersize=0.5)
-#plt.show()
+plt.show()
 
 """
 最后的这一部分是绘图

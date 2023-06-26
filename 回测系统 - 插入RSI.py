@@ -55,10 +55,15 @@ def calculate_rsi(prices, period=5):
         rsi[i] = 100.0 - 100.0 / (1.0 + rs)
 
     return rsi
-#rsi_values = calculate_rsi(AU)
-#df = pd.DataFrame(rsi_values) #导出csv文件
-#df.to_excel('rsi.xlsx', index=False)
-#print(len(rsi_values)) 一共1982项，和大循环长度一样
+#AU_rsi_values = calculate_rsi(AU)
+#df = pd.DataFrame(AU_rsi_values) #导出csv文件
+#df.to_excel('AUrsi.xlsx', index=False)
+#print(len(rsi_values)) #一共1982项，和大循环长度一样
+
+#NAU_rsi_values = calculate_rsi(NAU)
+#df = pd.DataFrame(NAU_rsi_values) #导出csv文件
+#df.to_excel('NAUrsi.xlsx', index=False)
+
 
 
 def calculate_volatility_index(closing_prices, period=5): #波动性指数,较高的波动性指数表示价格波动较大，风险较高(对于套利就不一定了)
@@ -101,8 +106,8 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
     T_return = np.full(length, np.nan)
     T_return_logchange = np.full(length, np.nan)
 
-    scant = 4.2  # 我们击穿的数量有限，要让交易尽可能的多但也不能浪费其潜力，换言之，让仓满了不交易的情况尽量少
-    vcant = 0.8
+    scant = 4.1  # 我们击穿的数量有限，要让交易尽可能的多但也不能浪费其潜力，换言之，让仓满了不交易的情况尽量少
+    vcant = 0.9
 
     p_change = np.full(length, np.nan)
     Trade_N = np.full(length, np.nan)
@@ -112,7 +117,36 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
     # grid_interval = 0.0005
     stop_loss = 0.1
 
+    def __calculate_rsi(prices, period=5): #这个是RSI指数，因为要算两个，所以用了内置函数
+        deltas = np.diff(prices)
+        seed = deltas[:period + 1]
+        up = seed[seed >= 0].sum() / period
+        down = -seed[seed < 0].sum() / period
+        rs = up / down
+        rsi = np.zeros_like(prices)
+        rsi[:period] = 100.0 - 100.0 / (1.0 + rs)
+
+        for i in range(period, len(prices)):
+            delta = deltas[i - 1]
+            if delta > 0:
+                upval = delta
+                downval = 0.0
+            else:
+                upval = 0.0
+                downval = -delta
+
+            up = (up * (period - 1) + upval) / period
+            down = (down * (period - 1) + downval) / period
+            rs = up / down
+            rsi[i] = 100.0 - 100.0 / (1.0 + rs)
+
+        return rsi
+
+    AU_rsi_values = __calculate_rsi(AU) #长度都和AU一致，为1982项
+    NAU_rsi_values = __calculate_rsi(NAU)
+
     for i, d in enumerate(trade_day):  # i是明天，只能有i-1，i-2之类的,那么一共1982项
+
         # 制造ratio
         ratio[i] = (NAU[i] * RMB[i] / 31.1035) / AU[i]
         # 制造T_return
@@ -131,9 +165,9 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
             T_return_logchange[i] = 0
         # 制造p_change
         if i>0:
-            if T_return_logchange[i] * math.copysign(1, T_return[i] - T_return[i - 1]) / scant >= 1:
+            if T_return_logchange[i] / scant >= 1:
                 p_change[i] = vcant
-            elif T_return_logchange[i] * math.copysign(1, T_return[i] - T_return[i - 1]) / scant <= -1:
+            elif T_return_logchange[i] / scant <= -1:
                 p_change[i] = -vcant
             else:
                 p_change[i] = (T_return_logchange[i] / scant)
@@ -159,6 +193,9 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
             change = -2
 
         #这些制造用i是没啥问题的，毕竟上面没有用来参与交易，除了ratio_value这两个和change
+        """
+        下面是交易逻辑
+        """
 
         if (prev_ratio_value < np.min(grid_levels)) or (prev_ratio_value > np.max(grid_levels)): #现在，这个prev_ratio_value要变成i-2
             position = {'ratio': ratio_value}
@@ -171,7 +208,7 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
                             position_list[i] = min(max(position_list[i - 1] + change, -1), 1) #position_list[i]是个预测值! position_list[i]是明天的，现在change已经用的是i-1了
                         elif position_list[i - 1] + change >= 1: #正向爆仓，此时change>0
                             position_list[i] = 1
-                        else: #反向爆仓 #这个地方应该有点问题
+                        else: #反向爆仓
                             position_list[i] = -1
                     else:
                         position_list[i] = position_list[i - 1]
@@ -196,11 +233,22 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
                 else:
                     position_list[i] = position_list[i - 1]
 
-            for position in positions:
-                if ratio_value < position['ratio'] * (1 - stop_loss):
-                    positions.remove(position)
-                    position_list[i] -= change
-                    Trade_N[i] = change
+
+            if ratio_value < position['ratio'] * (1 - stop_loss): #这个是止损
+                position_list[i] -= change
+
+
+            """
+            下面这一堆if是通过RSI指数判定要不要平仓，虽然我感觉仓位的改变并不是change
+            """
+            if AU_rsi_values[i - 1] > 70 and NAU_rsi_values[i - 1] <= 70:  # 一方降，一方升或者不变，平仓
+                position_list[i] -= change
+            elif AU_rsi_values[i - 1] < 30 and NAU_rsi_values[i - 1] >= 30:  # 一方升，一方降或者不变，平仓
+                position_list[i] += change
+            elif (AU_rsi_values[i - 1] >= 30 and AU_rsi_values[i - 1] <= 70) and NAU_rsi_values[i - 1] < 30:
+                position_list[i] += change
+            elif (AU_rsi_values[i - 1] >= 30 and AU_rsi_values[i - 1] <= 70) and NAU_rsi_values[i - 1] > 70:
+                position_list[i] -= change
 
             Trade_N[i] = position_list[i] - position_list[i - 1] #挪到这里来了，删掉了很多重复片段
 
@@ -229,7 +277,7 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
 
 Small_Trade_N,Small_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0004)
 Middle_Trade_N,Middle_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0020)
-Big_Trade_N,Big_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0031)
+Big_Trade_N,Big_postion_list,ratio,df = Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval = 0.0032)
 
 Trade_N = []
 for i in range(len(Small_Trade_N)):
