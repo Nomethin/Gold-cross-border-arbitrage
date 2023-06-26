@@ -6,6 +6,12 @@ import numpy as np
 import random
 import math
 
+"""
+说明：这个策略是以RSI值为核心，想法是：如果两者RSI不同时落在同一个区间内，就不怎么需要交易。也就是说，如果它们的差值的绝对值越大，交易数目就越大。
+以这个为基础，再结合网格交易（包含金字塔交易，不同网格大小结合）的手法，进行的黄金跨境套利方法。
+"""
+
+
 
 workbook = openpyxl.load_workbook('对回测.xlsx')
 sheet = workbook['1-最简单回测']
