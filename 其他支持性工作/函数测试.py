@@ -8,6 +8,7 @@ import math
 import talib
 import requests
 import json
+import 函数调用 as functions
 
 #import tushare as ts
 #ts.set_token("8738cde8fb3d07838ccd12f113fa3f28f3aff934e7e28d396b0d95ae")
@@ -17,17 +18,29 @@ import json
 #df = pro.fut_daily(ts_code='Au9999.SHF', start_date='2022-01-01', end_date='2022-12-31', fields='trade_date,vol')
 #没有权限是什么鬼
 
+print(functions.diaoyong()) #测试一下函数调用
 
-workbook = openpyxl.load_workbook('对回测.xlsx')
-sheet = workbook['1-最简单回测']
 
-AU = [cell.value for cell in sheet['B']][1:]
-AU_main = [cell.value for cell in sheet['J']][1:]
-NAU = [cell.value for cell in sheet['K']][1:]
-NAU_main = [cell.value for cell in sheet['L']][1:]
-RMB = [cell.value for cell in sheet['G']][1:]
-time_judge = [cell.value for cell in sheet['M']][1:]
+workbook = openpyxl.load_workbook('数据表格.xlsx')
+sheet = workbook['整理后数据']
+
+"""
+记得下面的一系列东西也要在函数调用和测试里面改
+"""
+#这里是交易参数，可能后面还会补充开盘价，交易量等
 trade_day = [cell.value for cell in sheet['A']][1:]
+AU = [cell.value for cell in sheet['B']][1:]
+AU_main = [cell.value for cell in sheet['D']][1:]
+NAU = [cell.value for cell in sheet['C']][1:]
+NAU_main = [cell.value for cell in sheet['E']][1:]
+RMB = [cell.value for cell in sheet['H']][1:]
+time_judge = [cell.value for cell in sheet['G']][1:]
+
+#下面是基本面分析的参数
+CBOE_Gold_ETF_Vol_Index = [cell.value for cell in sheet['M']][1:]
+Fed_Funds_Effective_Rate = [cell.value for cell in sheet['N']][1:]
+Nominal_Broad_Dollar_Index = [cell.value for cell in sheet['O']][1:]
+
 
 """
 70以上的RSI值表示超买（市场可能过热），而30以下的RSI值表示超卖（市场可能过冷）,下面是AU的RSI。
@@ -173,8 +186,23 @@ def calculate_kdj(prices, n=9, m=3):
 
     return k_values, d_values, j_values
 
-k, d, j = calculate_kdj(AU)
+"""
+Ak, Ad, Aj = calculate_kdj(AU)
+NAk, NAd, NAj = calculate_kdj(NAU)
+A_info_num = np.full(len(Ak), np.nan)
+NA_info_num = np.full(len(Ak), np.nan)
+kd_dif = np.full(len(Ak), np.nan)
+for i in range(len(Ak)):
+    A_info_num[i] = 1 / 2 * (Aj[i - 2] + Aj[i - 1]) if i > 1 else 0
+    NA_info_num[i] = 1 / 2 * (NAj[i - 2] + NAj[i - 1]) if i > 1 else 0
+    kd_dif[i] = Ak[i] - Ad[i]
+
+print(Aj)
+"""
+
+
 #都是1982项
+
 
 """
 W&R（Williams %R）是一种常用的技术分析指标，也称为威廉指标。
@@ -272,4 +300,19 @@ def calculate_expma(prices, period=5):
 
 expma_values = calculate_expma(AU)
 
+"""
+def detect_price_breakout(prices, expma_values, threshold=2):
+    # 计算价格的标准差
+    price_std = np.std(prices)
 
+    for i in range(len(prices)):
+        if abs(prices[i] - expma_values[i]) > threshold * price_std:
+            # 价格脱离振荡，执行相应的措施
+            if prices[i] > expma_values[i]:
+                print(f"价格上涨超过阈值，执行平仓操作")
+                # 执行平仓操作
+            else:
+                print(f"价格下跌超过阈值，执行买入操作")
+                # 执行买入操作
+            # 其他操作...
+"""

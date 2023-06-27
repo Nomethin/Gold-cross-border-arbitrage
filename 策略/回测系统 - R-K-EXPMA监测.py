@@ -15,17 +15,26 @@ import 函数调用 as functions
 同时，后面的回撤也更低了。
 """
 
-workbook = openpyxl.load_workbook('对回测.xlsx')
-sheet = workbook['1-最简单回测']
+workbook = openpyxl.load_workbook('数据表格.xlsx')
+sheet = workbook['整理后数据']
 
-AU = [cell.value for cell in sheet['B']][1:]
-AU_main = [cell.value for cell in sheet['J']][1:]
-NAU = [cell.value for cell in sheet['K']][1:]
-NAU_main = [cell.value for cell in sheet['L']][1:]
-RMB = [cell.value for cell in sheet['G']][1:]
-time_judge = [cell.value for cell in sheet['M']][1:]
+
+"""
+记得下面的一系列东西也要在函数调用和测试里面改
+"""
+#这里是交易参数，可能后面还会补充开盘价，交易量等
 trade_day = [cell.value for cell in sheet['A']][1:]
-#print(NAU_main)
+AU = [cell.value for cell in sheet['B']][1:]
+AU_main = [cell.value for cell in sheet['D']][1:]
+NAU = [cell.value for cell in sheet['C']][1:]
+NAU_main = [cell.value for cell in sheet['E']][1:]
+RMB = [cell.value for cell in sheet['H']][1:]
+time_judge = [cell.value for cell in sheet['G']][1:]
+
+#下面是基本面分析的参数
+CBOE_Gold_ETF_Vol_Index = [cell.value for cell in sheet['M']][1:]
+Fed_Funds_Effective_Rate = [cell.value for cell in sheet['N']][1:]
+Nominal_Broad_Dollar_Index = [cell.value for cell in sheet['O']][1:]
 
 
 
