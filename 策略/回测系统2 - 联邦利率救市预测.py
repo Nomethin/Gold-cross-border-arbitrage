@@ -11,7 +11,7 @@ import 函数调用 as functions
 """
 说明：基于联邦基金有效利率的变化，当它的差值超过3%的时候，我们认为政府正在积极的救市（或者说，疯狂的救市）
 在这个时候，我们平仓，冷静的观望五天，根据稍微稳定后的数据进行进一步的投资。
-这次没有特别大的改变，因为救市的时刻会比较有限，但依旧是很有用的。
+效果不错，可能是因为合理等待之后，网格开仓位置变得好了很多。当然，回撤的问题还是存在，下一步就要改这个。
 """
 
 workbook = openpyxl.load_workbook('数据表格.xlsx')
@@ -152,7 +152,7 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
             p_change[i] = 0
 
         """
-        下面是进入交易的准备工作,记得要i-1开始，上面可以用i是因为这个不参与交易大小。或者说是用来建立list的
+        下面是进入交易的准备工作,记得要i-1开始，上面有些可以用i是因为这个是用来创list的，不直接用来交易
         """
 
         ratio_value = ratio[i-1] if i > 0 else 1
@@ -205,7 +205,7 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
         elif (US_Unemployment_rate[i-2] > 5 and US_Unemployment_rate[i-1] < 5) or abs(VIX_EXPMA_change[i-1])<0.01: #跌出界限，直接清仓
             position_list[i] = 0 #清仓
 
-        else: #市场在振荡，我们使用网格
+        else: #市场在振荡，我们使用网格，按上面的情况，我们进入网格的时候都是0仓位的
             if (prev_ratio_value < np.min(grid_levels)) or (
                     prev_ratio_value > np.max(grid_levels)):  # 这个if是满足网格交易的条件
                 position = {'ratio': ratio_value}
@@ -215,33 +215,31 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
                 下面一串是EXPMA，假设有问题，快速应对
                 """
                 if expma_trend > 0.005:  # 通常trend 超过千分之五我们就可以说是有变化倾向（查的）
-                    position_list[i] = -1  # 快速反仓：ratio涨了，即NAU相对变贵，此时应多做空NAU
+                    position_list[i] = 1  # 快速反仓：ratio涨了，即NAU相对变贵，此时应多做空NAU
                 elif expma_trend < -0.005:
-                    position_list[i] = 1  # 快速反仓
+                    position_list[i] = -1  # 快速反仓
                 else:  # 这个else后就是正常交易时间的流程了
                     if ratio_value > 1:  # change不一定大于零，之前忘记加条件了
                         if time_judge[i] == 1:
                             if ratio_value > 1 + 0.08738 / AU_price:  # i等于0时是不会交易的
                                 if position_list[i - 1] + change < 1 and position_list[i - 1] >= -1 and position_list[
                                     i - 1] <= 1:  # 然后position_list[i - 1]也不一定是正的
-                                    position_list[i] = min(max(position_list[i - 1] + change, -1),
-                                                           1)  # position_list[i]是个预测值! position_list[i]是明天的，现在change已经用的是i-1了
+                                    position_list[i] = min(max(position_list[i - 1] + change, -1),1)  # position_list[i]是个预测值! position_list[i]是明天的，现在change已经用的是i-1了
                                 elif position_list[i - 1] + change >= 1:  # 正向爆仓，此时change>0
-                                    position_list[i] = 1
-                                else:  # 反向爆仓
                                     position_list[i] = -1
+                                else:  # 反向爆仓
+                                    position_list[i] = 1
                             else:
                                 position_list[i] = position_list[i - 1]
                         else:
                             if ratio_value > 1 + 0.02597 / AU_price:
                                 if position_list[i - 1] + change < 1 and position_list[i - 1] >= -1 and position_list[
                                     i - 1] <= 1:
-                                    position_list[i] = min(max(position_list[i - 1] + change, -1),
-                                                           1)  # 用来保证position_list只在-1到1之间
+                                    position_list[i] = min(max(position_list[i - 1] + change, -1),1)  # 用来保证position_list只在-1到1之间
                                 elif position_list[i - 1] + change >= 1:  # 正向爆仓
-                                    position_list[i] = 1
-                                else:  # 反向爆仓
                                     position_list[i] = -1
+                                else:  # 反向爆仓
+                                    position_list[i] = 1
                             else:
                                 position_list[i] = position_list[i - 1]
                     else:
@@ -271,11 +269,11 @@ def Backtesting(AU, NAU, trade_day, time_judge, RMB, grid_interval):
                     elif (AU_rsi_values[i - 1] >= 30 and AU_rsi_values[i - 1] <= 70) and NAU_rsi_values[i - 1] > 70:
                         position_list[i] += change
 
-                    Trade_N[i] = position_list[i] - position_list[i - 1]  # 挪到这里来了，删掉了很多重复片段
-
             else:  # 不满足网格，不交易
                 position_list[i] = position_list[i - 1]
                 Trade_N[i] = 0
+
+        Trade_N[i] = position_list[i] - position_list[i - 1]  # 挪到这里来了，删掉了很多重复片段
 
     data = {
         'trade_day': trade_day,
