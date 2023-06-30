@@ -11,8 +11,8 @@ import cntalib as talib
 import 函数调用 as functions
 
 # 打开原始 .xls 文件
-workbook = xlrd.open_workbook('Nominal Broad U.S. Dollar Index.xls') #改这个东西的名字就可以了
-sheet = workbook.sheet_by_name('FRED Graph') #这个也是
+workbook = xlrd.open_workbook('沪深300指数.xlsx') #改这个东西的名字就可以了
+sheet = workbook.sheet_by_name('沪深300指数') #这个也是
 
 data = []
 target_values = []
@@ -54,4 +54,4 @@ output_sheet.write(0, 5, 'Value')  # 写入标题
 for row in range(1, sheet.nrows):
     output_sheet.write(row, 5, target_values[row - 1])
 
-output_workbook.save('Modified_Nominal Broad U.S. Dollar Index.xls') #记得改一下文件名
+output_workbook.save('Modified_沪深300指数.xlsx') #记得改一下文件名
